@@ -13,7 +13,6 @@
       "backgroundColor": "#ffffff"
     },
     "plugins": [
-      "./plugins/withExpoModulesAutolinking.js",
       "./plugins/withBootReceiver.js",
       [
         "expo-build-properties",
