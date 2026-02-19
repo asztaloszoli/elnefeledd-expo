@@ -2,4 +2,9 @@ apply plugin: 'expo-module-gradle-plugin'
 
 android {
   namespace "expo.modules.ringtoneplayer"
+
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
 }
