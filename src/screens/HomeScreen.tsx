@@ -36,14 +36,23 @@ export default function HomeScreen({ navigation }: Props) {
   );
 
   const loadNotes = async () => {
-    const data = await getAllNotes();
-    setNotes(data);
+    try {
+      const data = await getAllNotes();
+      console.log('loadNotes: loaded', data.length, 'notes');
+      setNotes(data);
+    } catch (e) {
+      console.error('loadNotes error:', e);
+    }
   };
 
   const checkBatteryOptimization = async () => {
-    if (Platform.OS !== 'android') return;
-    const ok = await checkExactAlarmPermission();
-    setShowBatteryWarning(!ok);
+    try {
+      if (Platform.OS !== 'android') return;
+      const ok = await checkExactAlarmPermission();
+      setShowBatteryWarning(!ok);
+    } catch (e) {
+      console.error('checkBatteryOptimization error:', e);
+    }
   };
 
   const handleFixBattery = () => {

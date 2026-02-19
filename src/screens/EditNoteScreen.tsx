@@ -60,11 +60,13 @@ export default function EditNoteScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (overrideReminderTime?: Date | null) => {
     if (!title.trim()) {
       Alert.alert('Hiba', 'Kérlek adj meg egy címet!');
       return;
     }
+
+    const effectiveReminder = overrideReminderTime !== undefined ? overrideReminderTime : reminderTime;
 
     let notificationId: string | null = existingNotificationId;
 
@@ -83,7 +85,7 @@ export default function EditNoteScreen({ navigation, route }: Props) {
             title: title.trim(),
             content: content.trim(),
             color,
-            reminderTime: reminderTime?.getTime() || null,
+            reminderTime: effectiveReminder?.getTime() || null,
             notificationId: null,
             pinned,
           });
@@ -93,30 +95,42 @@ export default function EditNoteScreen({ navigation, route }: Props) {
           title: title.trim(),
           content: content.trim(),
           color,
-          reminderTime: reminderTime?.getTime() || null,
+          reminderTime: effectiveReminder?.getTime() || null,
           notificationId: null,
           pinned,
         });
       }
+      console.log('handleSave: note saved', savedNote?.id);
 
-      if (reminderTime && reminderTime.getTime() > Date.now() && savedNote) {
-        const hasPermission = await requestNotificationPermission();
-        if (hasPermission) {
-          notificationId = await scheduleReminder(
-            savedNote.id,
-            title.trim(),
-            content.trim() || 'Emlékeztető!',
-            reminderTime
-          );
-          await updateNote({ ...savedNote, notificationId });
-        } else {
-          Alert.alert('Figyelem', 'Az emlékeztetőkhöz engedélyezd az értesítéseket!');
+      if (effectiveReminder && effectiveReminder.getTime() > Date.now() && savedNote) {
+        try {
+          const hasPermission = await requestNotificationPermission();
+          console.log('handleSave: notification permission', hasPermission);
+          if (hasPermission) {
+            notificationId = await scheduleReminder(
+              savedNote.id,
+              title.trim(),
+              content.trim() || 'Emlékeztető!',
+              effectiveReminder
+            );
+            console.log('handleSave: reminder scheduled', notificationId);
+            await updateNote({ ...savedNote, notificationId });
+          } else {
+            Alert.alert('Figyelem', 'Az emlékeztetőkhöz engedélyezd az értesítéseket!');
+          }
+        } catch (scheduleError) {
+          console.error('handleSave: schedule error', scheduleError);
         }
       }
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Hiba', 'Nem sikerült menteni a jegyzetet');
+      console.error('handleSave error:', error);
+      Alert.alert('Hiba', 'Nem sikerült menteni a jegyzetet: ' + String(error));
     }
+  };
+
+  const handleSaveWithReminder = (date: Date) => {
+    handleSave(date);
   };
 
   const handleSetReminder = () => {
@@ -155,6 +169,7 @@ export default function EditNoteScreen({ navigation, route }: Props) {
       finalDate.setHours(selectedTime.getHours());
       finalDate.setMinutes(selectedTime.getMinutes());
       setReminderTime(finalDate);
+      setTimeout(() => handleSaveWithReminder(finalDate), 100);
     }
   };
 
@@ -174,7 +189,7 @@ export default function EditNoteScreen({ navigation, route }: Props) {
         <Text style={styles.headerTitle}>
           {isEditing ? 'Szerkesztés' : 'Új jegyzet'}
         </Text>
-        <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
+        <TouchableOpacity onPress={() => handleSave()} style={styles.saveButton}>
           <MaterialCommunityIcons name="check" size={24} color="#FFF" />
         </TouchableOpacity>
       </View>

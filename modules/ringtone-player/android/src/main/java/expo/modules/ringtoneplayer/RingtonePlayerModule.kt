@@ -52,10 +52,6 @@ class RingtonePlayerModule : Module() {
 
                 isLooping = true
 
-                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
-
                 prepare()
                 start()
             }

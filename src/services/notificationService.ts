@@ -9,7 +9,18 @@ import notifee, {
   Event,
 } from '@notifee/react-native';
 import { Platform, PermissionsAndroid, Linking, Alert } from 'react-native';
-import RingtonePlayer from '../../modules/ringtone-player';
+
+let RingtonePlayer: { play(): Promise<void>; stop(): Promise<void>; isPlaying(): Promise<boolean> };
+try {
+  RingtonePlayer = require('../../modules/ringtone-player').default;
+} catch (e) {
+  console.warn('RingtonePlayer native module not available:', e);
+  RingtonePlayer = {
+    play: async () => { console.warn('RingtonePlayer.play: native module not loaded'); },
+    stop: async () => { console.warn('RingtonePlayer.stop: native module not loaded'); },
+    isPlaying: async () => false,
+  };
+}
 
 const CHANNEL_ID = 'elnefeledd-alarms';
 const SNOOZE_MINUTES = 5;
@@ -23,7 +34,7 @@ export const setupNotificationChannel = async (): Promise<void> => {
     importance: AndroidImportance.HIGH,
     sound: 'default',
     vibration: true,
-    vibrationPattern: [0, 500, 250, 500],
+    vibrationPattern: [300, 500, 300, 500],
     bypassDnd: false,
   });
 };
@@ -91,7 +102,7 @@ export const scheduleReminder = async (
         importance: AndroidImportance.HIGH,
         visibility: AndroidVisibility.PUBLIC,
         sound: undefined,
-        vibrationPattern: [0, 500, 250, 500],
+        vibrationPattern: [300, 500, 300, 500],
         fullScreenAction: {
           id: 'default',
         },

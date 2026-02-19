@@ -11,18 +11,31 @@ import {
 } from './src/services/notificationService';
 import { rescheduleAllReminders } from './src/services/rescheduleService';
 
-notifee.onBackgroundEvent(handleBackgroundEvent);
+try {
+  notifee.onBackgroundEvent(handleBackgroundEvent);
+} catch (e) {
+  console.warn('onBackgroundEvent registration failed:', e);
+}
 
 export default function App() {
   useEffect(() => {
     const init = async () => {
-      await setupNotificationChannel();
-      await requestNotificationPermission();
-      await rescheduleAllReminders();
+      try {
+        await setupNotificationChannel();
+        await requestNotificationPermission();
+        await rescheduleAllReminders();
+        console.log('App init completed successfully');
+      } catch (e) {
+        console.error('App init error:', e);
+      }
     };
     init();
 
-    return notifee.onForegroundEvent(handleForegroundEvent);
+    try {
+      return notifee.onForegroundEvent(handleForegroundEvent);
+    } catch (e) {
+      console.warn('onForegroundEvent registration failed:', e);
+    }
   }, []);
 
   return (

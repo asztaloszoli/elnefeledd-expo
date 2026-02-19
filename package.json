@@ -26,8 +26,7 @@
     "react-native-reanimated": "^4.2.2",
     "react-native-safe-area-context": "^5.6.2",
     "react-native-screens": "^4.23.0",
-    "ringtone-player": "file:./modules/ringtone-player",
-    "uuid": "^13.0.0"
+    "ringtone-player": "file:./modules/ringtone-player"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
