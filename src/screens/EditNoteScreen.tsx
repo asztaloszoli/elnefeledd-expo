@@ -17,7 +17,7 @@ import { saveNote, updateNote, getNoteById } from '../services/storageService';
 import {
   scheduleReminder,
   cancelReminder,
-  registerForPushNotifications,
+  requestNotificationPermission,
 } from '../services/notificationService';
 
 interface Props {
@@ -73,42 +73,45 @@ export default function EditNoteScreen({ navigation, route }: Props) {
       notificationId = null;
     }
 
-    if (reminderTime && reminderTime.getTime() > Date.now()) {
-      const hasPermission = await registerForPushNotifications();
-      if (hasPermission) {
-        notificationId = await scheduleReminder(
-          title.trim(),
-          content.trim() || 'Emlékeztető!',
-          reminderTime
-        );
-      } else {
-        Alert.alert('Figyelem', 'Az emlékeztetőkhöz engedélyezd az értesítéseket!');
-      }
-    }
-
     try {
+      let savedNote;
       if (isEditing) {
         const existing = await getNoteById(noteId);
         if (existing) {
-          await updateNote({
+          savedNote = await updateNote({
             ...existing,
             title: title.trim(),
             content: content.trim(),
             color,
             reminderTime: reminderTime?.getTime() || null,
-            notificationId,
+            notificationId: null,
             pinned,
           });
         }
       } else {
-        await saveNote({
+        savedNote = await saveNote({
           title: title.trim(),
           content: content.trim(),
           color,
           reminderTime: reminderTime?.getTime() || null,
-          notificationId,
+          notificationId: null,
           pinned,
         });
+      }
+
+      if (reminderTime && reminderTime.getTime() > Date.now() && savedNote) {
+        const hasPermission = await requestNotificationPermission();
+        if (hasPermission) {
+          notificationId = await scheduleReminder(
+            savedNote.id,
+            title.trim(),
+            content.trim() || 'Emlékeztető!',
+            reminderTime
+          );
+          await updateNote({ ...savedNote, notificationId });
+        } else {
+          Alert.alert('Figyelem', 'Az emlékeztetőkhöz engedélyezd az értesítéseket!');
+        }
       }
       navigation.goBack();
     } catch (error) {

@@ -7,12 +7,17 @@ import {
   StyleSheet,
   Alert,
   TextInput,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Note } from '../types';
 import { getAllNotes, deleteNote, updateNote } from '../services/storageService';
-import { cancelReminder } from '../services/notificationService';
+import {
+  cancelReminder,
+  checkExactAlarmPermission,
+  openBatteryOptimizationSettings,
+} from '../services/notificationService';
 
 interface Props {
   navigation: any;
@@ -21,16 +26,38 @@ interface Props {
 export default function HomeScreen({ navigation }: Props) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showBatteryWarning, setShowBatteryWarning] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       loadNotes();
+      checkBatteryOptimization();
     }, [])
   );
 
   const loadNotes = async () => {
     const data = await getAllNotes();
     setNotes(data);
+  };
+
+  const checkBatteryOptimization = async () => {
+    if (Platform.OS !== 'android') return;
+    const ok = await checkExactAlarmPermission();
+    setShowBatteryWarning(!ok);
+  };
+
+  const handleFixBattery = () => {
+    Alert.alert(
+      'Akkuoptimalizálás',
+      'A pontos emlékeztetőkhöz kapcsold ki az akkuoptimalizálást ehhez az apphoz. A megnyitó beállításokban keresd meg az "El ne felejtsd!" appot és válaszd a "Ne optimalizáld" opciót.',
+      [
+        { text: 'Mégse', style: 'cancel' },
+        {
+          text: 'Beállítások',
+          onPress: () => openBatteryOptimizationSettings(),
+        },
+      ]
+    );
   };
 
   const handleDelete = (note: Note) => {
@@ -120,6 +147,15 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.headerTitle}>El ne felejtsd!</Text>
         <Text style={styles.headerSubtitle}>{notes.length} jegyzet</Text>
       </View>
+
+      {showBatteryWarning && (
+        <TouchableOpacity style={styles.warningBanner} onPress={handleFixBattery}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#D97706" />
+          <Text style={styles.warningText}>
+            Az akkuoptimalizálás megakadályozhatja az emlékeztetőket. Koppints a javításhoz!
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.searchContainer}>
         <MaterialCommunityIcons name="magnify" size={22} color="#94A3B8" style={styles.searchIcon} />
@@ -294,6 +330,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 22,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 10,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400E',
+    fontWeight: '600',
+    lineHeight: 18,
   },
   fab: {
     position: 'absolute',
