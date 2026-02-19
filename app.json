@@ -13,7 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "plugins": [
-      "@notifee/react-native",
+      "./plugins/withExpoModulesAutolinking.js",
       "./plugins/withBootReceiver.js",
       [
         "expo-build-properties",
@@ -24,8 +24,7 @@
             "minSdkVersion": 24
           }
         }
-      ],
-      "./modules/ringtone-player"
+      ]
     ],
     "ios": {
       "supportsTablet": true
