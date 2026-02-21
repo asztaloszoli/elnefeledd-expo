@@ -6,275 +6,311 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Note } from '../types';
-import { getAllNotes, deleteNote, updateNote } from '../services/storageService';
+import { getAllNotes, deleteNote } from '../services/storageService';
 import { cancelReminder } from '../services/notificationService';
+
+const DAYS_HU = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
+const MONTHS_HU = ['jan.', 'feb.', 'már.', 'ápr.', 'máj.', 'jún.', 'júl.', 'aug.', 'szept.', 'okt.', 'nov.', 'dec.'];
 
 interface Props {
   navigation: any;
 }
 
 export default function HomeScreen({ navigation }: Props) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [reminders, setReminders] = useState<Note[]>([]);
 
   useFocusEffect(
     useCallback(() => {
-      loadNotes();
+      loadReminders();
     }, [])
   );
 
-  const loadNotes = async () => {
+  const loadReminders = async () => {
     const data = await getAllNotes();
-    setNotes(data);
+    const sorted = data.sort((a, b) => {
+      const aTime = a.reminderTime || 0;
+      const bTime = b.reminderTime || 0;
+      return aTime - bTime;
+    });
+    setReminders(sorted);
   };
 
-  const handleDelete = (note: Note) => {
-    Alert.alert('Törlés', `Biztosan törlöd: "${note.title}"?`, [
+  const handleDelete = (item: Note) => {
+    Alert.alert('Törlés', `Törlöd: "${item.title}"?`, [
       { text: 'Mégse', style: 'cancel' },
       {
         text: 'Törlés',
         style: 'destructive',
         onPress: async () => {
-          if (note.notificationId) {
-            await cancelReminder(note.notificationId);
+          if (item.notificationId) {
+            await cancelReminder(item.notificationId);
           }
-          await deleteNote(note.id);
-          loadNotes();
+          await deleteNote(item.id);
+          loadReminders();
         },
       },
     ]);
   };
 
-  const handleTogglePin = async (note: Note) => {
-    await updateNote({ ...note, pinned: !note.pinned });
-    loadNotes();
-  };
-
-  const filteredNotes = notes.filter(
-    (n) =>
-      n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const formatDate = (timestamp: number) => {
+  const formatReminderDate = (timestamp: number) => {
     const d = new Date(timestamp);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const dayName = DAYS_HU[d.getDay()];
+    const monthName = MONTHS_HU[d.getMonth()];
+    return `${d.getFullYear()}. ${monthName} ${d.getDate()}. (${dayName})`;
   };
 
-  const renderNote = ({ item }: { item: Note }) => {
-    const hasReminder = item.reminderTime && item.reminderTime > Date.now();
+  const formatReminderTime = (timestamp: number) => {
+    const d = new Date(timestamp);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const getDaysUntil = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = timestamp - now;
+    if (diff < 0) return 'Lejárt';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    if (days === 0 && hours === 0) return 'Hamarosan';
+    if (days === 0) return `${hours} óra múlva`;
+    if (days === 1) return 'Holnap';
+    if (days < 7) return `${days} nap múlva`;
+    if (days < 30) return `${Math.floor(days / 7)} hét múlva`;
+    return `${Math.floor(days / 30)} hónap múlva`;
+  };
+
+  const isExpired = (timestamp: number) => timestamp < Date.now();
+
+  const upcoming = reminders.filter((r) => r.reminderTime && !isExpired(r.reminderTime));
+  const expired = reminders.filter((r) => r.reminderTime && isExpired(r.reminderTime));
+
+  const renderReminder = ({ item }: { item: Note }) => {
+    if (!item.reminderTime) return null;
+    const expired = isExpired(item.reminderTime);
 
     return (
       <TouchableOpacity
-        style={[styles.noteCard, { backgroundColor: item.color || '#FFFFFF' }]}
+        style={[styles.card, expired && styles.cardExpired]}
         onPress={() => navigation.navigate('EditNote', { noteId: item.id })}
         activeOpacity={0.7}
       >
-        <View style={styles.noteHeader}>
-          <Text style={styles.noteTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <View style={styles.noteActions}>
-            <TouchableOpacity onPress={() => handleTogglePin(item)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <MaterialCommunityIcons
-                name={item.pinned ? 'pin' : 'pin-outline'}
-                size={20}
-                color={item.pinned ? '#2563EB' : '#94A3B8'}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDelete(item)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-            </TouchableOpacity>
+        <View style={styles.cardLeft}>
+          <View style={[styles.iconWrap, expired ? styles.iconExpired : styles.iconActive]}>
+            <MaterialCommunityIcons
+              name={expired ? 'bell-off-outline' : 'bell-ring-outline'}
+              size={22}
+              color={expired ? '#94A3B8' : '#2563EB'}
+            />
           </View>
         </View>
-
-        {item.content ? (
-          <Text style={styles.noteContent} numberOfLines={3}>
-            {item.content}
+        <View style={styles.cardCenter}>
+          <Text style={[styles.cardTitle, expired && styles.cardTitleExpired]} numberOfLines={1}>
+            {item.title}
           </Text>
-        ) : null}
-
-        <View style={styles.noteFooter}>
-          <Text style={styles.noteDate}>{formatDate(item.updatedAt)}</Text>
-          {hasReminder && (
-            <View style={styles.reminderBadge}>
-              <MaterialCommunityIcons name="bell-ring-outline" size={14} color="#F59E0B" />
-              <Text style={styles.reminderText}>
-                {formatDate(item.reminderTime!)}
-              </Text>
-            </View>
-          )}
+          {item.content ? (
+            <Text style={styles.cardNote} numberOfLines={1}>{item.content}</Text>
+          ) : null}
+          <Text style={styles.cardDate}>
+            {formatReminderDate(item.reminderTime)} · {formatReminderTime(item.reminderTime)}
+          </Text>
+        </View>
+        <View style={styles.cardRight}>
+          <Text style={[styles.badge, expired ? styles.badgeExpired : styles.badgeActive]}>
+            {getDaysUntil(item.reminderTime)}
+          </Text>
+          <TouchableOpacity
+            onPress={() => handleDelete(item)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialCommunityIcons name="trash-can-outline" size={18} color="#CBD5E1" />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>El ne felejtsd!</Text>
-        <Text style={styles.headerSubtitle}>{notes.length} jegyzet</Text>
+        <View>
+          <Text style={styles.headerTitle}>El ne felejtsd!</Text>
+          <Text style={styles.headerSubtitle}>
+            {upcoming.length === 0
+              ? 'Nincs aktív emlékeztető'
+              : `${upcoming.length} aktív emlékeztető`}
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.searchContainer}>
-        <MaterialCommunityIcons name="magnify" size={22} color="#94A3B8" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Keresés..."
-          placeholderTextColor="#94A3B8"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <MaterialCommunityIcons name="close-circle" size={20} color="#94A3B8" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {filteredNotes.length === 0 ? (
+      {reminders.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="note-text-outline" size={80} color="#CBD5E1" />
-          <Text style={styles.emptyTitle}>
-            {searchQuery ? 'Nincs találat' : 'Még nincsenek jegyzeteid'}
-          </Text>
+          <View style={styles.emptyIconWrap}>
+            <MaterialCommunityIcons name="bell-plus-outline" size={48} color="#94A3B8" />
+          </View>
+          <Text style={styles.emptyTitle}>Nincs emlékeztetőd</Text>
           <Text style={styles.emptySubtitle}>
-            {searchQuery
-              ? 'Próbálj más keresőszót'
-              : 'Koppints a + gombra az első jegyzeted létrehozásához'}
+            {'Koppints az alábbi gombra\nés állítsd be az első emlékeztetődet'}
           </Text>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => navigation.navigate('EditNote', {})}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
+            <Text style={styles.emptyButtonText}>Új emlékeztető</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={filteredNotes}
-          renderItem={renderNote}
+          data={[...upcoming, ...expired]}
+          renderItem={renderReminder}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            upcoming.length > 0 ? (
+              <Text style={styles.sectionLabel}>Közelgő</Text>
+            ) : null
+          }
+          ListFooterComponent={
+            expired.length > 0 ? (
+              <View>
+                <Text style={styles.sectionLabel}>Lejárt</Text>
+                {expired.map((item) => (
+                  <View key={item.id}>{renderReminder({ item })}</View>
+                ))}
+              </View>
+            ) : null
+          }
         />
       )}
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('EditNote', {})}
-        activeOpacity={0.8}
-      >
-        <MaterialCommunityIcons name="plus" size={28} color="#FFF" />
-      </TouchableOpacity>
-    </View>
+      {reminders.length > 0 && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => navigation.navigate('EditNote', {})}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="plus" size={26} color="#FFF" />
+        </TouchableOpacity>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
   },
   header: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 8,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
     backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#1E293B',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#94A3B8',
     marginTop: 2,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    marginHorizontal: 16,
-    marginTop: 16,
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 8,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 46,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1E293B',
+    marginTop: 8,
   },
   listContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 90,
   },
-  noteCard: {
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  noteHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  cardExpired: {
+    opacity: 0.6,
+  },
+  cardLeft: {
+    marginRight: 14,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  noteTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1E293B',
+  iconActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  iconExpired: {
+    backgroundColor: '#F1F5F9',
+  },
+  cardCenter: {
     flex: 1,
-    marginRight: 12,
   },
-  noteActions: {
-    flexDirection: 'row',
-    gap: 14,
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
   },
-  noteContent: {
-    fontSize: 14,
-    color: '#475569',
-    lineHeight: 20,
-    marginBottom: 10,
+  cardTitleExpired: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
   },
-  noteFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  cardNote: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 2,
   },
-  noteDate: {
+  cardDate: {
     fontSize: 12,
     color: '#94A3B8',
   },
-  reminderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
+  cardRight: {
+    alignItems: 'flex-end',
+    gap: 8,
+    marginLeft: 10,
+  },
+  badge: {
+    fontSize: 11,
+    fontWeight: '700',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
-    gap: 4,
+    overflow: 'hidden',
   },
-  reminderText: {
-    fontSize: 11,
-    color: '#D97706',
-    fontWeight: '600',
+  badgeActive: {
+    backgroundColor: '#DBEAFE',
+    color: '#1D4ED8',
+  },
+  badgeExpired: {
+    backgroundColor: '#FEE2E2',
+    color: '#DC2626',
   },
   emptyContainer: {
     flex: 1,
@@ -282,26 +318,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
+  emptyIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 28,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#64748B',
-    marginTop: 16,
+    color: '#475569',
   },
   emptySubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#94A3B8',
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 22,
+    marginTop: 6,
+    lineHeight: 21,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#2563EB',
+    borderRadius: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    marginTop: 24,
+  },
+  emptyButtonText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   fab: {
     position: 'absolute',
-    right: 24,
-    bottom: 32,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',

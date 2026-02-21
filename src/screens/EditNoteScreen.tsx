@@ -10,15 +10,18 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Note, NOTE_COLORS, NoteColor } from '../types';
+import { Note } from '../types';
 import { saveNote, updateNote, getNoteById } from '../services/storageService';
 import {
   scheduleReminder,
   cancelReminder,
   registerForPushNotifications,
 } from '../services/notificationService';
+
+const DAYS_HU = ['Vas', 'Hét', 'Kedd', 'Sze', 'Csüt', 'Pén', 'Szo'];
+const MONTHS_HU = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
 
 interface Props {
   navigation: any;
@@ -31,14 +34,17 @@ export default function EditNoteScreen({ navigation, route }: Props) {
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [color, setColor] = useState<string>('#FFFFFF');
-  const [reminderTime, setReminderTime] = useState<Date | null>(null);
   const [existingNotificationId, setExistingNotificationId] = useState<string | null>(null);
-  const [pinned, setPinned] = useState(false);
 
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [tempDate, setTempDate] = useState(new Date());
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+
+  const [year, setYear] = useState(String(tomorrow.getFullYear()));
+  const [month, setMonth] = useState(String(tomorrow.getMonth() + 1));
+  const [day, setDay] = useState(String(tomorrow.getDate()));
+  const [hour, setHour] = useState('9');
+  const [minute, setMinute] = useState('00');
 
   useEffect(() => {
     if (noteId) {
@@ -51,39 +57,76 @@ export default function EditNoteScreen({ navigation, route }: Props) {
     if (note) {
       setTitle(note.title);
       setContent(note.content);
-      setColor(note.color);
-      setPinned(note.pinned);
       setExistingNotificationId(note.notificationId);
       if (note.reminderTime) {
-        setReminderTime(new Date(note.reminderTime));
+        const d = new Date(note.reminderTime);
+        setYear(String(d.getFullYear()));
+        setMonth(String(d.getMonth() + 1));
+        setDay(String(d.getDate()));
+        setHour(String(d.getHours()));
+        setMinute(String(d.getMinutes()).padStart(2, '0'));
       }
     }
   };
 
-  const handleSave = async () => {
+  const getSelectedDate = (): Date | null => {
+    const y = parseInt(year);
+    const m = parseInt(month);
+    const d = parseInt(day);
+    const h = parseInt(hour);
+    const min = parseInt(minute);
+
+    if (!y || !m || !d || isNaN(h) || isNaN(min)) return null;
+    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+    if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+
+    return new Date(y, m - 1, d, h, min);
+  };
+
+  const getDatePreview = (): string => {
+    const date = getSelectedDate();
+    if (!date) return 'Adj meg érvényes dátumot';
+    const dayName = DAYS_HU[date.getDay()];
+    const monthName = MONTHS_HU[date.getMonth()];
+    return `${date.getFullYear()}. ${monthName} ${date.getDate()}. (${dayName}) ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const isDateValid = (): boolean => {
+    const date = getSelectedDate();
+    return date !== null && date.getTime() > Date.now();
+  };
+
+  const handleSubmit = async () => {
     if (!title.trim()) {
-      Alert.alert('Hiba', 'Kérlek adj meg egy címet!');
+      Alert.alert('Hiba', 'Adj meg egy nevet az emlékeztetőnek!');
       return;
     }
 
-    let notificationId: string | null = existingNotificationId;
+    const date = getSelectedDate();
+    if (!date) {
+      Alert.alert('Hiba', 'Adj meg érvényes dátumot és időt!');
+      return;
+    }
+    if (date.getTime() <= Date.now()) {
+      Alert.alert('Hiba', 'Az időpont a jövőben kell legyen!');
+      return;
+    }
+
+    let notificationId: string | null = null;
 
     if (existingNotificationId) {
       await cancelReminder(existingNotificationId);
-      notificationId = null;
     }
 
-    if (reminderTime && reminderTime.getTime() > Date.now()) {
-      const hasPermission = await registerForPushNotifications();
-      if (hasPermission) {
-        notificationId = await scheduleReminder(
-          title.trim(),
-          content.trim() || 'Emlékeztető!',
-          reminderTime
-        );
-      } else {
-        Alert.alert('Figyelem', 'Az emlékeztetőkhöz engedélyezd az értesítéseket!');
-      }
+    const hasPermission = await registerForPushNotifications();
+    if (hasPermission) {
+      notificationId = await scheduleReminder(
+        title.trim(),
+        content.trim() || 'Emlékeztető!',
+        date
+      );
+    } else {
+      Alert.alert('Figyelem', 'Az emlékeztetőkhöz engedélyezd az értesítéseket a beállításokban!');
     }
 
     try {
@@ -94,213 +137,168 @@ export default function EditNoteScreen({ navigation, route }: Props) {
             ...existing,
             title: title.trim(),
             content: content.trim(),
-            color,
-            reminderTime: reminderTime?.getTime() || null,
+            reminderTime: date.getTime(),
             notificationId,
-            pinned,
           });
         }
       } else {
         await saveNote({
           title: title.trim(),
           content: content.trim(),
-          color,
-          reminderTime: reminderTime?.getTime() || null,
+          color: '#FFFFFF',
+          reminderTime: date.getTime(),
           notificationId,
-          pinned,
+          pinned: false,
         });
       }
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Hiba', 'Nem sikerült menteni a jegyzetet');
+      Alert.alert('Hiba', 'Nem sikerült menteni');
     }
-  };
-
-  const handleSetReminder = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + 30);
-    setTempDate(reminderTime || now);
-    setShowDatePicker(true);
-  };
-
-  const handleRemoveReminder = async () => {
-    if (existingNotificationId) {
-      await cancelReminder(existingNotificationId);
-    }
-    setReminderTime(null);
-    setExistingNotificationId(null);
-  };
-
-  const onDateChange = (_event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    if (selectedDate) {
-      setTempDate(selectedDate);
-      if (Platform.OS === 'android') {
-        setShowTimePicker(true);
-      }
-    }
-  };
-
-  const onTimeChange = (_event: any, selectedTime?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowTimePicker(false);
-    }
-    if (selectedTime) {
-      const finalDate = new Date(tempDate);
-      finalDate.setHours(selectedTime.getHours());
-      finalDate.setMinutes(selectedTime.getMinutes());
-      setReminderTime(finalDate);
-    }
-  };
-
-  const formatDate = (date: Date) => {
-    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isEditing ? 'Szerkesztés' : 'Új jegyzet'}
-        </Text>
-        <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-          <MaterialCommunityIcons name="check" size={24} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
-        <TextInput
-          style={styles.titleInput}
-          placeholder="Cím"
-          placeholderTextColor="#94A3B8"
-          value={title}
-          onChangeText={setTitle}
-          maxLength={100}
-        />
-
-        <TextInput
-          style={styles.contentInput}
-          placeholder="Írd ide a jegyzeted..."
-          placeholderTextColor="#94A3B8"
-          value={content}
-          onChangeText={setContent}
-          multiline
-          textAlignVertical="top"
-        />
-
-        <Text style={styles.sectionTitle}>Szín</Text>
-        <View style={styles.colorRow}>
-          {NOTE_COLORS.map((c) => (
-            <TouchableOpacity
-              key={c}
-              style={[
-                styles.colorCircle,
-                { backgroundColor: c },
-                color === c && styles.colorCircleActive,
-              ]}
-              onPress={() => setColor(c)}
-            >
-              {color === c && (
-                <MaterialCommunityIcons name="check" size={18} color="#1E293B" />
-              )}
-            </TouchableOpacity>
-          ))}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {isEditing ? 'Szerkesztés' : 'Új emlékeztető'}
+          </Text>
+          <View style={{ width: 40 }} />
         </View>
 
-        <Text style={styles.sectionTitle}>Emlékeztető</Text>
-        {reminderTime ? (
-          <View style={styles.reminderCard}>
-            <View style={styles.reminderInfo}>
-              <MaterialCommunityIcons name="bell-ring" size={22} color="#F59E0B" />
-              <Text style={styles.reminderDateText}>{formatDate(reminderTime)}</Text>
+        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.label}>Mire emlékeztesselek?</Text>
+          <TextInput
+            style={styles.titleInput}
+            placeholder="pl. Fogorvos, Szülinap, Határidő..."
+            placeholderTextColor="#94A3B8"
+            value={title}
+            onChangeText={setTitle}
+            maxLength={100}
+          />
+
+          <Text style={styles.label}>Megjegyzés (opcionális)</Text>
+          <TextInput
+            style={styles.noteInput}
+            placeholder="Részletek, cím, telefonszám..."
+            placeholderTextColor="#94A3B8"
+            value={content}
+            onChangeText={setContent}
+            multiline
+            textAlignVertical="top"
+          />
+
+          <Text style={styles.label}>Mikor?</Text>
+          <View style={styles.dateCard}>
+            <View style={styles.dateRow}>
+              <View style={styles.dateFieldLarge}>
+                <Text style={styles.dateFieldLabel}>Év</Text>
+                <TextInput
+                  style={styles.dateInput}
+                  value={year}
+                  onChangeText={setYear}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                />
+              </View>
+              <Text style={styles.dateSeparator}>.</Text>
+              <View style={styles.dateFieldSmall}>
+                <Text style={styles.dateFieldLabel}>Hó</Text>
+                <TextInput
+                  style={styles.dateInput}
+                  value={month}
+                  onChangeText={setMonth}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                />
+              </View>
+              <Text style={styles.dateSeparator}>.</Text>
+              <View style={styles.dateFieldSmall}>
+                <Text style={styles.dateFieldLabel}>Nap</Text>
+                <TextInput
+                  style={styles.dateInput}
+                  value={day}
+                  onChangeText={setDay}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                />
+              </View>
             </View>
-            <View style={styles.reminderActions}>
-              <TouchableOpacity onPress={handleSetReminder} style={styles.reminderEditBtn}>
-                <MaterialCommunityIcons name="pencil" size={18} color="#2563EB" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleRemoveReminder} style={styles.reminderDeleteBtn}>
-                <MaterialCommunityIcons name="close" size={18} color="#EF4444" />
-              </TouchableOpacity>
+
+            <View style={styles.timeRow}>
+              <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
+              <View style={styles.timeFieldWrap}>
+                <TextInput
+                  style={styles.timeInput}
+                  value={hour}
+                  onChangeText={setHour}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                />
+              </View>
+              <Text style={styles.timeColon}>:</Text>
+              <View style={styles.timeFieldWrap}>
+                <TextInput
+                  style={styles.timeInput}
+                  value={minute}
+                  onChangeText={setMinute}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                />
+              </View>
+            </View>
+
+            <View style={styles.previewRow}>
+              <MaterialCommunityIcons
+                name={isDateValid() ? 'calendar-check' : 'calendar-alert'}
+                size={18}
+                color={isDateValid() ? '#16A34A' : '#EF4444'}
+              />
+              <Text style={[styles.previewText, !isDateValid() && styles.previewTextError]}>
+                {getDatePreview()}
+              </Text>
             </View>
           </View>
-        ) : (
-          <TouchableOpacity style={styles.addReminderButton} onPress={handleSetReminder}>
-            <MaterialCommunityIcons name="bell-plus-outline" size={22} color="#2563EB" />
-            <Text style={styles.addReminderText}>Emlékeztető hozzáadása</Text>
-          </TouchableOpacity>
-        )}
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={tempDate}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onDateChange}
-            minimumDate={new Date()}
-          />
-        )}
-
-        {showTimePicker && (
-          <DateTimePicker
-            value={tempDate}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onTimeChange}
-            is24Hour={true}
-          />
-        )}
-
-        {Platform.OS === 'ios' && showDatePicker && (
           <TouchableOpacity
-            style={styles.iosConfirmButton}
-            onPress={() => {
-              setShowDatePicker(false);
-              setShowTimePicker(true);
-            }}
+            style={[styles.submitButton, !isDateValid() && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            activeOpacity={0.8}
+            disabled={!isDateValid() || !title.trim()}
           >
-            <Text style={styles.iosConfirmText}>Dátum kiválasztva - Idő</Text>
+            <MaterialCommunityIcons name="bell-plus" size={22} color="#FFF" />
+            <Text style={styles.submitButtonText}>
+              {isEditing ? 'Emlékeztető frissítése' : 'Emlékeztető beállítása'}
+            </Text>
           </TouchableOpacity>
-        )}
-
-        {Platform.OS === 'ios' && showTimePicker && (
-          <TouchableOpacity
-            style={styles.iosConfirmButton}
-            onPress={() => {
-              setShowTimePicker(false);
-              setReminderTime(tempDate);
-            }}
-          >
-            <Text style={styles.iosConfirmText}>Kész</Text>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
+  },
+  flex: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingVertical: 10,
     backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
   },
   backButton: {
     width: 40,
@@ -314,127 +312,146 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1E293B',
   },
-  saveButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   content: {
     flex: 1,
     padding: 20,
   },
+  label: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 8,
+  },
   titleInput: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  noteInput: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 16,
+    fontSize: 15,
+    color: '#475569',
+    lineHeight: 22,
+    minHeight: 70,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  dateCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  dateFieldLarge: {
+    flex: 2,
+    alignItems: 'center',
+  },
+  dateFieldSmall: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  dateFieldLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginBottom: 6,
+  },
+  dateInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    width: '100%',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  dateSeparator: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#CBD5E1',
+    paddingHorizontal: 6,
+    paddingBottom: 10,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
-    paddingVertical: 8,
+    gap: 4,
   },
-  contentInput: {
-    fontSize: 16,
-    color: '#475569',
-    lineHeight: 24,
-    minHeight: 150,
-    marginBottom: 24,
+  timeFieldWrap: {
+    width: 64,
   },
-  sectionTitle: {
-    fontSize: 15,
+  timeInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 12,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  colorRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 28,
-  },
-  colorCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
+    color: '#0F172A',
+    textAlign: 'center',
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  colorCircleActive: {
-    borderColor: '#2563EB',
-    borderWidth: 3,
+  timeColon: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#475569',
+    paddingHorizontal: 4,
   },
-  reminderCard: {
+  previewRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    marginBottom: 24,
-  },
-  reminderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  reminderDateText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#92400E',
-  },
-  reminderActions: {
-    flexDirection: 'row',
     gap: 8,
-  },
-  reminderEditBtn: {
-    width: 34,
-    height: 34,
+    backgroundColor: '#F8FAFC',
     borderRadius: 10,
-    backgroundColor: '#EFF6FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 12,
   },
-  reminderDeleteBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#FEF2F2',
-    justifyContent: 'center',
-    alignItems: 'center',
+  previewText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#16A34A',
+    flex: 1,
   },
-  addReminderButton: {
+  previewTextError: {
+    color: '#EF4444',
+  },
+  submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    marginBottom: 24,
-  },
-  addReminderText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2563EB',
-  },
-  iosConfirmButton: {
-    alignSelf: 'center',
     backgroundColor: '#2563EB',
-    borderRadius: 10,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    marginTop: 8,
-    marginBottom: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginBottom: 40,
   },
-  iosConfirmText: {
+  submitButtonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  submitButtonText: {
     color: '#FFF',
-    fontWeight: '600',
-    fontSize: 15,
+    fontSize: 17,
+    fontWeight: '700',
   },
 });
