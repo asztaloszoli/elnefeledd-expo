@@ -116,15 +116,16 @@ const pickerStyles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    gap: 4,
+    gap: 2,
   },
   buttonText: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+    flexShrink: 0,
   },
   overlay: {
     flex: 1,
@@ -392,15 +393,16 @@ export default function EditNoteScreen({ navigation, route }: Props) {
                 items={buildYearItems()}
                 selectedValue={year}
                 onSelect={handleYearChange}
+                width={90}
               />
-              <View style={{ width: 8 }} />
+              <View style={{ width: 6 }} />
               <DropdownPicker
                 label="Hónap"
                 items={buildMonthItems()}
                 selectedValue={month}
                 onSelect={handleMonthChange}
               />
-              <View style={{ width: 8 }} />
+              <View style={{ width: 6 }} />
               <DropdownPicker
                 label="Nap"
                 items={buildDayItems(year, month)}
