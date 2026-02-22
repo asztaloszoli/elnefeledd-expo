@@ -9,6 +9,8 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,6 +24,193 @@ import {
 
 const DAYS_HU = ['Vas', 'Hét', 'Kedd', 'Sze', 'Csüt', 'Pén', 'Szo'];
 const MONTHS_HU = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
+
+interface PickerItem {
+  label: string;
+  value: number;
+}
+
+interface DropdownPickerProps {
+  label: string;
+  items: PickerItem[];
+  selectedValue: number;
+  onSelect: (value: number) => void;
+  width?: number;
+}
+
+function DropdownPicker({ label, items, selectedValue, onSelect, width }: DropdownPickerProps) {
+  const [visible, setVisible] = useState(false);
+  const selected = items.find((i) => i.value === selectedValue);
+
+  return (
+    <View style={[pickerStyles.wrapper, width ? { width } : { flex: 1 }]}>
+      <Text style={pickerStyles.label}>{label}</Text>
+      <TouchableOpacity
+        style={pickerStyles.button}
+        onPress={() => setVisible(true)}
+        activeOpacity={0.7}
+      >
+        <Text style={pickerStyles.buttonText}>{selected?.label ?? '–'}</Text>
+        <MaterialCommunityIcons name="chevron-down" size={18} color="#64748B" />
+      </TouchableOpacity>
+
+      <Modal visible={visible} transparent animationType="fade">
+        <TouchableOpacity
+          style={pickerStyles.overlay}
+          activeOpacity={1}
+          onPress={() => setVisible(false)}
+        >
+          <View style={pickerStyles.modal}>
+            <Text style={pickerStyles.modalTitle}>{label}</Text>
+            <FlatList
+              data={items}
+              keyExtractor={(item) => String(item.value)}
+              style={pickerStyles.list}
+              initialScrollIndex={Math.max(0, items.findIndex((i) => i.value === selectedValue))}
+              getItemLayout={(_, index) => ({ length: 48, offset: 48 * index, index })}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    pickerStyles.option,
+                    item.value === selectedValue && pickerStyles.optionSelected,
+                  ]}
+                  onPress={() => {
+                    onSelect(item.value);
+                    setVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      pickerStyles.optionText,
+                      item.value === selectedValue && pickerStyles.optionTextSelected,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.value === selectedValue && (
+                    <MaterialCommunityIcons name="check" size={20} color="#2563EB" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+}
+
+const pickerStyles = StyleSheet.create({
+  wrapper: {},
+  label: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    gap: 4,
+  },
+  buttonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modal: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    width: '80%',
+    maxHeight: '60%',
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  list: {
+    paddingHorizontal: 8,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    height: 48,
+  },
+  optionSelected: {
+    backgroundColor: '#EFF6FF',
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#334155',
+  },
+  optionTextSelected: {
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+});
+
+function buildYearItems(): PickerItem[] {
+  const now = new Date().getFullYear();
+  const items: PickerItem[] = [];
+  for (let y = now; y <= now + 5; y++) {
+    items.push({ label: String(y), value: y });
+  }
+  return items;
+}
+
+function buildMonthItems(): PickerItem[] {
+  return MONTHS_HU.map((name, i) => ({ label: name, value: i + 1 }));
+}
+
+function buildDayItems(year: number, month: number): PickerItem[] {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const items: PickerItem[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month - 1, d);
+    const dayName = DAYS_HU[date.getDay()];
+    items.push({ label: `${d}. (${dayName})`, value: d });
+  }
+  return items;
+}
+
+function buildHourItems(): PickerItem[] {
+  const items: PickerItem[] = [];
+  for (let h = 0; h <= 23; h++) {
+    items.push({ label: `${String(h).padStart(2, '0')} óra`, value: h });
+  }
+  return items;
+}
+
+function buildMinuteItems(): PickerItem[] {
+  const items: PickerItem[] = [];
+  for (let m = 0; m <= 59; m += 5) {
+    items.push({ label: `${String(m).padStart(2, '0')} perc`, value: m });
+  }
+  return items;
+}
 
 interface Props {
   navigation: any;
@@ -40,11 +229,11 @@ export default function EditNoteScreen({ navigation, route }: Props) {
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(9, 0, 0, 0);
 
-  const [year, setYear] = useState(String(tomorrow.getFullYear()));
-  const [month, setMonth] = useState(String(tomorrow.getMonth() + 1));
-  const [day, setDay] = useState(String(tomorrow.getDate()));
-  const [hour, setHour] = useState('9');
-  const [minute, setMinute] = useState('00');
+  const [year, setYear] = useState(tomorrow.getFullYear());
+  const [month, setMonth] = useState(tomorrow.getMonth() + 1);
+  const [day, setDay] = useState(tomorrow.getDate());
+  const [hour, setHour] = useState(9);
+  const [minute, setMinute] = useState(0);
 
   useEffect(() => {
     if (noteId) {
@@ -60,40 +249,40 @@ export default function EditNoteScreen({ navigation, route }: Props) {
       setExistingNotificationId(note.notificationId);
       if (note.reminderTime) {
         const d = new Date(note.reminderTime);
-        setYear(String(d.getFullYear()));
-        setMonth(String(d.getMonth() + 1));
-        setDay(String(d.getDate()));
-        setHour(String(d.getHours()));
-        setMinute(String(d.getMinutes()).padStart(2, '0'));
+        setYear(d.getFullYear());
+        setMonth(d.getMonth() + 1);
+        setDay(d.getDate());
+        setHour(d.getHours());
+        setMinute(d.getMinutes());
       }
     }
   };
 
-  const getSelectedDate = (): Date | null => {
-    const y = parseInt(year);
-    const m = parseInt(month);
-    const d = parseInt(day);
-    const h = parseInt(hour);
-    const min = parseInt(minute);
+  const handleMonthChange = (newMonth: number) => {
+    setMonth(newMonth);
+    const maxDay = new Date(year, newMonth, 0).getDate();
+    if (day > maxDay) setDay(maxDay);
+  };
 
-    if (!y || !m || !d || isNaN(h) || isNaN(min)) return null;
-    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-    if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+  const handleYearChange = (newYear: number) => {
+    setYear(newYear);
+    const maxDay = new Date(newYear, month, 0).getDate();
+    if (day > maxDay) setDay(maxDay);
+  };
 
-    return new Date(y, m - 1, d, h, min);
+  const getSelectedDate = (): Date => {
+    return new Date(year, month - 1, day, hour, minute);
   };
 
   const getDatePreview = (): string => {
     const date = getSelectedDate();
-    if (!date) return 'Adj meg érvényes dátumot';
     const dayName = DAYS_HU[date.getDay()];
     const monthName = MONTHS_HU[date.getMonth()];
     return `${date.getFullYear()}. ${monthName} ${date.getDate()}. (${dayName}) ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
   const isDateValid = (): boolean => {
-    const date = getSelectedDate();
-    return date !== null && date.getTime() > Date.now();
+    return getSelectedDate().getTime() > Date.now();
   };
 
   const handleSubmit = async () => {
@@ -103,10 +292,6 @@ export default function EditNoteScreen({ navigation, route }: Props) {
     }
 
     const date = getSelectedDate();
-    if (!date) {
-      Alert.alert('Hiba', 'Adj meg érvényes dátumot és időt!');
-      return;
-    }
     if (date.getTime() <= Date.now()) {
       Alert.alert('Hiba', 'Az időpont a jövőben kell legyen!');
       return;
@@ -118,15 +303,19 @@ export default function EditNoteScreen({ navigation, route }: Props) {
       await cancelReminder(existingNotificationId);
     }
 
-    const hasPermission = await registerForPushNotifications();
-    if (hasPermission) {
-      notificationId = await scheduleReminder(
-        title.trim(),
-        content.trim() || 'Emlékeztető!',
-        date
-      );
-    } else {
-      Alert.alert('Figyelem', 'Az emlékeztetőkhöz engedélyezd az értesítéseket a beállításokban!');
+    try {
+      const hasPermission = await registerForPushNotifications();
+      if (hasPermission) {
+        notificationId = await scheduleReminder(
+          title.trim(),
+          content.trim() || 'Emlékeztető!',
+          date
+        );
+      } else {
+        Alert.alert('Figyelem', 'Az emlékeztetőkhöz engedélyezd az értesítéseket a beállításokban!');
+      }
+    } catch (e) {
+      // notification scheduling failed, continue saving
     }
 
     try {
@@ -153,7 +342,7 @@ export default function EditNoteScreen({ navigation, route }: Props) {
       }
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Hiba', 'Nem sikerült menteni');
+      Alert.alert('Hiba', 'Nem sikerült menteni. Próbáld újra!');
     }
   };
 
@@ -198,61 +387,42 @@ export default function EditNoteScreen({ navigation, route }: Props) {
           <Text style={styles.label}>Mikor?</Text>
           <View style={styles.dateCard}>
             <View style={styles.dateRow}>
-              <View style={styles.dateFieldLarge}>
-                <Text style={styles.dateFieldLabel}>Év</Text>
-                <TextInput
-                  style={styles.dateInput}
-                  value={year}
-                  onChangeText={setYear}
-                  keyboardType="number-pad"
-                  maxLength={4}
-                />
-              </View>
-              <Text style={styles.dateSeparator}>.</Text>
-              <View style={styles.dateFieldSmall}>
-                <Text style={styles.dateFieldLabel}>Hó</Text>
-                <TextInput
-                  style={styles.dateInput}
-                  value={month}
-                  onChangeText={setMonth}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                />
-              </View>
-              <Text style={styles.dateSeparator}>.</Text>
-              <View style={styles.dateFieldSmall}>
-                <Text style={styles.dateFieldLabel}>Nap</Text>
-                <TextInput
-                  style={styles.dateInput}
-                  value={day}
-                  onChangeText={setDay}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                />
-              </View>
+              <DropdownPicker
+                label="Év"
+                items={buildYearItems()}
+                selectedValue={year}
+                onSelect={handleYearChange}
+              />
+              <View style={{ width: 8 }} />
+              <DropdownPicker
+                label="Hónap"
+                items={buildMonthItems()}
+                selectedValue={month}
+                onSelect={handleMonthChange}
+              />
+              <View style={{ width: 8 }} />
+              <DropdownPicker
+                label="Nap"
+                items={buildDayItems(year, month)}
+                selectedValue={day}
+                onSelect={setDay}
+              />
             </View>
 
             <View style={styles.timeRow}>
-              <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
-              <View style={styles.timeFieldWrap}>
-                <TextInput
-                  style={styles.timeInput}
-                  value={hour}
-                  onChangeText={setHour}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                />
-              </View>
+              <DropdownPicker
+                label="Óra"
+                items={buildHourItems()}
+                selectedValue={hour}
+                onSelect={setHour}
+              />
               <Text style={styles.timeColon}>:</Text>
-              <View style={styles.timeFieldWrap}>
-                <TextInput
-                  style={styles.timeInput}
-                  value={minute}
-                  onChangeText={setMinute}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                />
-              </View>
+              <DropdownPicker
+                label="Perc"
+                items={buildMinuteItems()}
+                selectedValue={minute}
+                onSelect={setMinute}
+              />
             </View>
 
             <View style={styles.previewRow}>
@@ -262,13 +432,13 @@ export default function EditNoteScreen({ navigation, route }: Props) {
                 color={isDateValid() ? '#16A34A' : '#EF4444'}
               />
               <Text style={[styles.previewText, !isDateValid() && styles.previewTextError]}>
-                {getDatePreview()}
+                {isDateValid() ? getDatePreview() : 'Válassz jövőbeli időpontot!'}
               </Text>
             </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.submitButton, !isDateValid() && styles.submitButtonDisabled]}
+            style={[styles.submitButton, (!isDateValid() || !title.trim()) && styles.submitButtonDisabled]}
             onPress={handleSubmit}
             activeOpacity={0.8}
             disabled={!isDateValid() || !title.trim()}
@@ -348,76 +518,28 @@ const styles = StyleSheet.create({
   dateCard: {
     backgroundColor: '#FFF',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     marginBottom: 24,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   dateRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
     marginBottom: 16,
-  },
-  dateFieldLarge: {
-    flex: 2,
-    alignItems: 'center',
-  },
-  dateFieldSmall: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  dateFieldLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginBottom: 6,
-  },
-  dateInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
-    width: '100%',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  dateSeparator: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#CBD5E1',
-    paddingHorizontal: 6,
-    paddingBottom: 10,
   },
   timeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'center',
     marginBottom: 16,
-    gap: 4,
-  },
-  timeFieldWrap: {
-    width: 64,
-  },
-  timeInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingVertical: 12,
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    paddingHorizontal: 40,
   },
   timeColon: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: '#475569',
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingBottom: 12,
   },
   previewRow: {
     flexDirection: 'row',

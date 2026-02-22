@@ -1,8 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Note } from '../types';
-import { v4 as uuidv4 } from 'uuid';
 
 const NOTES_KEY = 'elnefeledd_notes';
+
+const generateId = (): string => {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+};
 
 export const getAllNotes = async (): Promise<Note[]> => {
   const json = await AsyncStorage.getItem(NOTES_KEY);
@@ -19,7 +22,7 @@ export const saveNote = async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'
   const now = Date.now();
   const newNote: Note = {
     ...note,
-    id: uuidv4(),
+    id: generateId(),
     createdAt: now,
     updatedAt: now,
   };
