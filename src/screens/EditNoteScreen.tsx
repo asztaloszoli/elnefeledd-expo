@@ -67,7 +67,7 @@ function DropdownPicker({ label, items, selectedValue, onSelect, width }: Dropdo
               keyExtractor={(item) => String(item.value)}
               style={pickerStyles.list}
               initialScrollIndex={Math.max(0, items.findIndex((i) => i.value === selectedValue))}
-              getItemLayout={(_, index) => ({ length: 48, offset: 48 * index, index })}
+              getItemLayout={(_, index) => ({ length: 56, offset: 56 * index, index })}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[
@@ -136,39 +136,42 @@ const pickerStyles = StyleSheet.create({
   modal: {
     backgroundColor: '#FFF',
     borderRadius: 20,
-    width: '80%',
+    width: '90%',
     maxHeight: '60%',
     paddingTop: 20,
     paddingBottom: 10,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1E293B',
     textAlign: 'center',
     marginBottom: 12,
   },
   list: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
   },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+    justifyContent: 'center',
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 10,
-    height: 48,
+    borderRadius: 12,
+    height: 56,
+    marginBottom: 4,
   },
   optionSelected: {
     backgroundColor: '#EFF6FF',
   },
   optionText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#334155',
+    textAlign: 'center',
+    fontWeight: '600',
   },
   optionTextSelected: {
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#2563EB',
   },
 });

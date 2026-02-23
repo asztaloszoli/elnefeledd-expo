@@ -31,11 +31,12 @@ export const registerForPushNotifications = async (): Promise<boolean> => {
   }
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('reminders', {
+    await Notifications.setNotificationChannelAsync('reminders_v2', {
       name: 'Emlékeztetők',
-      importance: Notifications.AndroidImportance.HIGH,
+      importance: Notifications.AndroidImportance.MAX,
       sound: 'default',
       vibrationPattern: [0, 250, 250, 250],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
   }
 
@@ -56,8 +57,9 @@ export const scheduleReminder = async (
     content: {
       title: '🔔 ' + title,
       body: body || 'Emlékeztető!',
-      sound: 'default',
-      ...(Platform.OS === 'android' && { channelId: 'reminders' }),
+      sound: 'default', // Explicitly enable default sound
+      priority: Notifications.AndroidNotificationPriority.MAX, // High priority
+      ...(Platform.OS === 'android' && { channelId: 'reminders_v2' }),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
