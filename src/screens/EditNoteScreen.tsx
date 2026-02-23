@@ -179,7 +179,7 @@ const pickerStyles = StyleSheet.create({
 function buildYearItems(): PickerItem[] {
   const now = new Date().getFullYear();
   const items: PickerItem[] = [];
-  for (let y = now; y <= now + 5; y++) {
+  for (let y = now; y <= now + 1; y++) {
     items.push({ label: String(y), value: y });
   }
   return items;

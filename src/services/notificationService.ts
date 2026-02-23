@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: true,
+    shouldPlaySound: false, // We play the ringtone separately via ringtoneService
     shouldSetBadge: false,
     shouldShowBanner: true,
     shouldShowList: true,
@@ -31,10 +31,10 @@ export const registerForPushNotifications = async (): Promise<boolean> => {
   }
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('reminders_v2', {
+    await Notifications.setNotificationChannelAsync('reminders_v3', {
       name: 'Emlékeztetők',
       importance: Notifications.AndroidImportance.MAX,
-      sound: 'default',
+      sound: 'default', // Fallback sound for background notifications
       vibrationPattern: [0, 250, 250, 250],
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
@@ -57,9 +57,9 @@ export const scheduleReminder = async (
     content: {
       title: '🔔 ' + title,
       body: body || 'Emlékeztető!',
-      sound: 'default', // Explicitly enable default sound
-      priority: Notifications.AndroidNotificationPriority.MAX, // High priority
-      ...(Platform.OS === 'android' && { channelId: 'reminders_v2' }),
+      sound: 'default', // Fallback for background; foreground ringtone handled by ringtoneService
+      priority: Notifications.AndroidNotificationPriority.MAX,
+      ...(Platform.OS === 'android' && { channelId: 'reminders_v3' }),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
