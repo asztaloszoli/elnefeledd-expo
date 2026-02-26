@@ -2,10 +2,13 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
+export const REMINDER_CATEGORY_ID = 'reminder';
+export const STOP_ACTION_ID = 'stop_ringtone';
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: false, // We play the ringtone separately via ringtoneService
+    shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
     shouldShowList: true,
@@ -30,17 +33,35 @@ export const registerForPushNotifications = async (): Promise<boolean> => {
     return false;
   }
 
+  await registerReminderCategory();
+
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('reminders_v3', {
+    await Notifications.setNotificationChannelAsync('reminders_v4', {
       name: 'Emlékeztetők',
       importance: Notifications.AndroidImportance.MAX,
-      sound: 'default', // Fallback sound for background notifications
+      sound: 'default',
       vibrationPattern: [0, 250, 250, 250],
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      audioAttributes: {
+        usage: Notifications.AndroidAudioUsage.ALARM,
+        contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+      },
     });
   }
 
   return true;
+};
+
+const registerReminderCategory = async (): Promise<void> => {
+  await Notifications.setNotificationCategoryAsync(REMINDER_CATEGORY_ID, [
+    {
+      identifier: STOP_ACTION_ID,
+      buttonTitle: '⏹ Leállítás',
+      options: {
+        opensAppToForeground: false,
+      },
+    },
+  ]);
 };
 
 export const scheduleReminder = async (
@@ -48,22 +69,18 @@ export const scheduleReminder = async (
   body: string,
   triggerDate: Date
 ): Promise<string> => {
-  const secondsUntil = Math.max(
-    Math.floor((triggerDate.getTime() - Date.now()) / 1000),
-    1
-  );
-
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: '🔔 ' + title,
       body: body || 'Emlékeztető!',
-      sound: 'default', // Fallback for background; foreground ringtone handled by ringtoneService
+      sound: 'default',
       priority: Notifications.AndroidNotificationPriority.MAX,
-      ...(Platform.OS === 'android' && { channelId: 'reminders_v3' }),
+      categoryIdentifier: REMINDER_CATEGORY_ID,
+      ...(Platform.OS === 'android' && { channelId: 'reminders_v4' }),
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: secondsUntil,
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: triggerDate,
     },
   });
 

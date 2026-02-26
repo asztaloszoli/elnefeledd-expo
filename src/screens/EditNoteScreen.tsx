@@ -67,7 +67,7 @@ function DropdownPicker({ label, items, selectedValue, onSelect, width }: Dropdo
               keyExtractor={(item) => String(item.value)}
               style={pickerStyles.list}
               initialScrollIndex={Math.max(0, items.findIndex((i) => i.value === selectedValue))}
-              getItemLayout={(_, index) => ({ length: 56, offset: 56 * index, index })}
+              getItemLayout={(_, index) => ({ length: 60, offset: 60 * index, index })}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[

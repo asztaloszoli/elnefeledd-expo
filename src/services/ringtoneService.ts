@@ -1,73 +1,17 @@
-import { Audio } from 'expo-av';
-import { Platform } from 'react-native';
-
-let currentSound: Audio.Sound | null = null;
+import { playRingtone as nativePlay, stopRingtone as nativeStop } from '../../modules/expo-ringtone';
 
 /**
- * Play the phone's default ringtone.
- * On Android, uses the system ringtone URI (content://settings/system/ringtone).
- * Falls back to default notification sound if ringtone URI fails.
+ * Play the phone's default ringtone using native Android API.
+ * Uses RingtoneManager to get the actual device ringtone URI,
+ * and MediaPlayer to play it at ALARM volume level, looping.
+ * Auto-stops after 15 minutes.
  */
 export const playRingtone = async (): Promise<void> => {
   try {
-    // Stop any currently playing sound first
-    await stopRingtone();
-
-    // Configure audio to play even in silent mode and through the speaker
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      staysActiveInBackground: true,
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: false,
-    });
-
-    if (Platform.OS === 'android') {
-      // Try to play the system ringtone
-      try {
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: 'content://settings/system/ringtone' },
-          {
-            shouldPlay: true,
-            isLooping: true,
-            volume: 1.0,
-          }
-        );
-        currentSound = sound;
-
-        // Auto-stop after 30 seconds
-        setTimeout(() => {
-          stopRingtone();
-        }, 30000);
-
-        return;
-      } catch (ringtoneError) {
-        console.log('Could not play system ringtone, trying alarm:', ringtoneError);
-      }
-
-      // Fallback: try alarm sound
-      try {
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: 'content://settings/system/alarm_alert' },
-          {
-            shouldPlay: true,
-            isLooping: true,
-            volume: 1.0,
-          }
-        );
-        currentSound = sound;
-
-        setTimeout(() => {
-          stopRingtone();
-        }, 30000);
-
-        return;
-      } catch (alarmError) {
-        console.log('Could not play alarm sound either:', alarmError);
-      }
-    }
+    await nativePlay(900000);
+    console.log('[ringtoneService] Native ringtone started (auto-stop: 15 min)');
   } catch (error) {
-    console.log('Error playing ringtone:', error);
+    console.log('[ringtoneService] Native ringtone failed:', error);
   }
 };
 
@@ -76,13 +20,8 @@ export const playRingtone = async (): Promise<void> => {
  */
 export const stopRingtone = async (): Promise<void> => {
   try {
-    if (currentSound) {
-      await currentSound.stopAsync();
-      await currentSound.unloadAsync();
-      currentSound = null;
-    }
+    await nativeStop();
   } catch (error) {
-    // Sound might already be unloaded
-    currentSound = null;
+    // ignore — may already be stopped
   }
 };

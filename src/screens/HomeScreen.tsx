@@ -166,7 +166,7 @@ export default function HomeScreen({ navigation }: Props) {
         </View>
       ) : (
         <FlatList
-          data={[...upcoming, ...expired]}
+          data={upcoming}
           renderItem={renderReminder}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
