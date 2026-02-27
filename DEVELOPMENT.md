@@ -58,6 +58,7 @@ D:\elnefeledd\
 ├── package.json                     # Függőségek és scriptek
 ├── tsconfig.json                    # TypeScript konfiguráció (strict mód)
 ├── generate-icons.js                # Ikon-generáló script (canvas alapú)
+├── generate-alarm-sound.js          # Alarm hang generátor (30s WAV, pure Node.js)
 ├── assets/
 │   ├── icon.png                     # App ikon (1024x1024, narancs háttér, zöld csengő)
 │   ├── adaptive-icon.png            # Android adaptive ikon előtér
@@ -69,8 +70,10 @@ D:\elnefeledd\
 │       ├── index.ts                 # TypeScript bridge (playRingtone, stopRingtone, isPlaying)
 │       └── android/
 │           ├── build.gradle         # Android build konfiguráció
-│           └── src/main/java/expo/modules/ringtone/
-│               └── ExpoRingtoneModule.kt  # Natív Kotlin kód (RingtoneManager + MediaPlayer)
+│           └── src/main/
+│               ├── res/raw/alarm_sound.wav  # Saját alarm hang (15 perc, 880/1100Hz beep, ~14MB)
+│               └── java/expo/modules/ringtone/
+│                   └── ExpoRingtoneModule.kt  # Natív Kotlin kód (RingtoneManager + MediaPlayer)
 └── src/
     ├── types/
     │   └── index.ts                 # Note interfész, NoteColor típus
@@ -165,10 +168,10 @@ Notifications.setNotificationHandler({
 
 | Tulajdonság | Érték | Magyarázat |
 |---|---|---|
-| **Channel ID** | `reminders_v4` | Egyedi csatorna ID (v4, ALARM audioAttributes-szel) |
+| **Channel ID** | `reminders_v5` | Egyedi csatorna ID (v5, saját alarm hang) |
 | **Név** | `Emlékeztetők` | A felhasználó ezt látja a rendszer beállításaiban |
 | **Importance** | `MAX` | Legmagasabb prioritás — heads-up notification |
-| **Sound** | `default` | Alapértelmezett értesítési hang |
+| **Sound** | `alarm_sound.wav` | Saját alarm hang (15 perc, 880/1100Hz beep minta, `res/raw/`, ~14MB) |
 | **AudioAttributes** | `ALARM` usage, `SONIFICATION` contentType | Ébresztő hangerőszinten szól |
 | **Vibration** | `[0, 250, 250, 250]` | Rezgésminta (ms) |
 | **Lockscreen** | `PUBLIC` | Zárolási képernyőn is megjelenik |
@@ -177,7 +180,8 @@ Notifications.setNotificationHandler({
 > - `reminders_v1` — Eredeti, `HIGH` importance  
 > - `reminders_v2` — `MAX` importance, újra létrehozva a hang beállítások alkalmazásához  
 > - `reminders_v3` — `ringtoneService` integráció (shouldPlaySound: false — hibás, néma értesítéseket okozott)  
-> - `reminders_v4` — Jelenlegi, `shouldPlaySound: true` + `ALARM` audioAttributes
+> - `reminders_v4` — `shouldPlaySound: true` + `ALARM` audioAttributes, `default` hang
+> - `reminders_v5` — **Jelenlegi.** Saját `alarm_sound.wav` hang (15 perc, appba csomagolva), ALARM hangerő. Minden állapotban (háttér, kilőtt app) az app saját alarm hangja szól.
 
 #### Notification Category — Akciógombok
 
@@ -267,11 +271,12 @@ App.tsx (notification listener)
 
 | Helyzet | Hang viselkedés |
 |---|---|
-| **App előtérben** | ✅ **Telefon csengőhangja** szól (natív ExpoRingtone modul, ALARM hangerő, looping) |
-| **App háttérben** | ✅ Értesítési hang (notification channel, ALARM hangerő) |
-| **App leállítva** | ✅ Értesítési hang (notification channel, ALARM hangerő) |
+| **App előtérben** | ✅ **Telefon csengőhangja** (natív ExpoRingtone, ALARM hangerő, 15 perc looping) + **saját alarm hang** (channel) |
+| **App háttérben** | ✅ **Saját alarm hang** (`alarm_sound.wav`, 15 perc, ALARM hangerő) |
+| **App leállítva (kill)** | ✅ **Saját alarm hang** (`alarm_sound.wav`, 15 perc, ALARM hangerő) |
+| **Telefon újraindítás után** | ✅ Az `expo-notifications` automatikusan újraütemezi (`RECEIVE_BOOT_COMPLETED`) |
 
-> **Megjegyzés:** Háttérben a `addNotificationReceivedListener` nem fut le, ezért a natív csengőhang lejátszás nem lehetséges. Ilyenkor a notification channel `sound: 'default'` + `ALARM` audioAttributes biztosítja, hogy az értesítési hang az ébresztő hangerőszintjén szólal meg.
+> **Megjegyzés:** Háttérben/kilőtt appnál a `addNotificationReceivedListener` nem fut le, ezért a natív csengőhang lejátszás nem lehetséges. Ilyenkor a notification channel `sound: 'alarm_sound.wav'` + `ALARM` audioAttributes biztosítja, hogy az app saját alarm hangja az ébresztő hangerőszintjén szólal meg.
 
 #### Függvények
 
@@ -279,7 +284,7 @@ App.tsx (notification listener)
 
 | Függvény | Leírás |
 |---|---|
-| `playRingtone()` | Natív csengőhang lejátszás indítása (30s auto-stop). |
+| `playRingtone()` | Natív csengőhang lejátszás indítása (15 perc auto-stop). |
 | `stopRingtone()` | Csengőhang azonnali leállítása. |
 
 **`ExpoRingtoneModule.kt` (natív):**

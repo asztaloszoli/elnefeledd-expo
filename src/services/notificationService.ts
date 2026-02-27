@@ -36,10 +36,10 @@ export const registerForPushNotifications = async (): Promise<boolean> => {
   await registerReminderCategory();
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('reminders_v4', {
+    await Notifications.setNotificationChannelAsync('reminders_v5', {
       name: 'Emlékeztetők',
       importance: Notifications.AndroidImportance.MAX,
-      sound: 'default',
+      sound: 'alarm_sound.wav',
       vibrationPattern: [0, 250, 250, 250],
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       audioAttributes: {
@@ -73,10 +73,10 @@ export const scheduleReminder = async (
     content: {
       title: '🔔 ' + title,
       body: body || 'Emlékeztető!',
-      sound: 'default',
+      sound: 'alarm_sound.wav',
       priority: Notifications.AndroidNotificationPriority.MAX,
       categoryIdentifier: REMINDER_CATEGORY_ID,
-      ...(Platform.OS === 'android' && { channelId: 'reminders_v4' }),
+      ...(Platform.OS === 'android' && { channelId: 'reminders_v5' }),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
