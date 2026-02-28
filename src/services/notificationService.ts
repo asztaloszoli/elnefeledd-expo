@@ -1,26 +1,18 @@
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import {
+  scheduleAlarm,
+  cancelAlarm,
+  cancelAllAlarms,
+  canScheduleExactAlarms,
+  requestExactAlarmPermission,
+} from '../../modules/expo-ringtone';
 
-export const REMINDER_CATEGORY_ID = 'reminder';
-export const STOP_ACTION_ID = 'stop_ringtone';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
-
+/**
+ * Request notification + exact alarm permissions.
+ */
 export const registerForPushNotifications = async (): Promise<boolean> => {
-  if (!Device.isDevice) {
-    console.log('Notifications only work on physical devices');
-    return false;
-  }
-
+  // Notification permission (needed for foreground service notification)
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -29,68 +21,48 @@ export const registerForPushNotifications = async (): Promise<boolean> => {
     finalStatus = status;
   }
 
-  if (finalStatus !== 'granted') {
-    return false;
-  }
-
-  await registerReminderCategory();
-
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('reminders_v5', {
-      name: 'Emlékeztetők',
-      importance: Notifications.AndroidImportance.MAX,
-      sound: 'alarm_sound.wav',
-      vibrationPattern: [0, 250, 250, 250],
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      audioAttributes: {
-        usage: Notifications.AndroidAudioUsage.ALARM,
-        contentType: Notifications.AndroidAudioContentType.SONIFICATION,
-      },
-    });
+    // Clean up all old expo-notifications channels
+    for (const oldId of ['reminders', 'reminders_v2', 'reminders_v3', 'reminders_v4', 'reminders_v5', 'reminders_v6']) {
+      try { await Notifications.deleteNotificationChannelAsync(oldId); } catch (_) {}
+    }
+
+    // Exact alarm permission (Android 12+)
+    try {
+      const canExact = await canScheduleExactAlarms();
+      if (!canExact) {
+        await requestExactAlarmPermission();
+      }
+    } catch (_) {}
   }
 
-  return true;
+  return finalStatus === 'granted';
 };
 
-const registerReminderCategory = async (): Promise<void> => {
-  await Notifications.setNotificationCategoryAsync(REMINDER_CATEGORY_ID, [
-    {
-      identifier: STOP_ACTION_ID,
-      buttonTitle: '⏹ Leállítás',
-      options: {
-        opensAppToForeground: false,
-      },
-    },
-  ]);
-};
-
+/**
+ * Schedule a reminder using native AlarmManager.
+ * Works in all app states: foreground, background, killed, after reboot.
+ */
 export const scheduleReminder = async (
   title: string,
   body: string,
   triggerDate: Date
 ): Promise<string> => {
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: '🔔 ' + title,
-      body: body || 'Emlékeztető!',
-      sound: 'alarm_sound.wav',
-      priority: Notifications.AndroidNotificationPriority.MAX,
-      categoryIdentifier: REMINDER_CATEGORY_ID,
-      ...(Platform.OS === 'android' && { channelId: 'reminders_v5' }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: triggerDate,
-    },
-  });
-
+  const id = `reminder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  await scheduleAlarm(id, triggerDate.getTime(), title, body || 'Emlékeztető!');
   return id;
 };
 
+/**
+ * Cancel a previously scheduled reminder.
+ */
 export const cancelReminder = async (notificationId: string): Promise<void> => {
-  await Notifications.cancelScheduledNotificationAsync(notificationId);
+  await cancelAlarm(notificationId);
 };
 
+/**
+ * Cancel all scheduled reminders.
+ */
 export const cancelAllReminders = async (): Promise<void> => {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await cancelAllAlarms();
 };

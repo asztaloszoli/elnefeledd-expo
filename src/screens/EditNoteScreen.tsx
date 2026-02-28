@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Note } from '../types';
 import { saveNote, updateNote, getNoteById } from '../services/storageService';
@@ -21,6 +22,8 @@ import {
   cancelReminder,
   registerForPushNotifications,
 } from '../services/notificationService';
+import { ThemeColors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 const DAYS_HU = ['Vas', 'Hét', 'Kedd', 'Sze', 'Csüt', 'Pén', 'Szo'];
 const MONTHS_HU = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
@@ -39,40 +42,42 @@ interface DropdownPickerProps {
 }
 
 function DropdownPicker({ label, items, selectedValue, onSelect, width }: DropdownPickerProps) {
+  const { colors } = useTheme();
+  const ps = useMemo(() => makePickerStyles(colors), [colors]);
   const [visible, setVisible] = useState(false);
   const selected = items.find((i) => i.value === selectedValue);
 
   return (
-    <View style={[pickerStyles.wrapper, width ? { width } : { flex: 1 }]}>
-      <Text style={pickerStyles.label}>{label}</Text>
+    <View style={[ps.wrapper, width ? { width } : { flex: 1 }]}>
+      <Text style={ps.label}>{label}</Text>
       <TouchableOpacity
-        style={pickerStyles.button}
+        style={ps.button}
         onPress={() => setVisible(true)}
         activeOpacity={0.7}
       >
-        <Text style={pickerStyles.buttonText}>{selected?.label ?? '–'}</Text>
-        <MaterialCommunityIcons name="chevron-down" size={18} color="#64748B" />
+        <Text style={ps.buttonText}>{selected?.label ?? '–'}</Text>
+        <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textSecondary} />
       </TouchableOpacity>
 
       <Modal visible={visible} transparent animationType="fade">
         <TouchableOpacity
-          style={pickerStyles.overlay}
+          style={ps.overlay}
           activeOpacity={1}
           onPress={() => setVisible(false)}
         >
-          <View style={pickerStyles.modal}>
-            <Text style={pickerStyles.modalTitle}>{label}</Text>
+          <View style={ps.modal}>
+            <Text style={ps.modalTitle}>{label}</Text>
             <FlatList
               data={items}
               keyExtractor={(item) => String(item.value)}
-              style={pickerStyles.list}
+              style={ps.list}
               initialScrollIndex={Math.max(0, items.findIndex((i) => i.value === selectedValue))}
               getItemLayout={(_, index) => ({ length: 60, offset: 60 * index, index })}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[
-                    pickerStyles.option,
-                    item.value === selectedValue && pickerStyles.optionSelected,
+                    ps.option,
+                    item.value === selectedValue && ps.optionSelected,
                   ]}
                   onPress={() => {
                     onSelect(item.value);
@@ -81,14 +86,14 @@ function DropdownPicker({ label, items, selectedValue, onSelect, width }: Dropdo
                 >
                   <Text
                     style={[
-                      pickerStyles.optionText,
-                      item.value === selectedValue && pickerStyles.optionTextSelected,
+                      ps.optionText,
+                      item.value === selectedValue && ps.optionTextSelected,
                     ]}
                   >
                     {item.label}
                   </Text>
                   {item.value === selectedValue && (
-                    <MaterialCommunityIcons name="check" size={20} color="#2563EB" />
+                    <MaterialCommunityIcons name="check" size={20} color="#EC4899" />
                   )}
                 </TouchableOpacity>
               )}
@@ -100,81 +105,31 @@ function DropdownPicker({ label, items, selectedValue, onSelect, width }: Dropdo
   );
 }
 
-const pickerStyles = StyleSheet.create({
-  wrapper: {},
-  label: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 2,
-  },
-  buttonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    flexShrink: 0,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modal: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    width: '90%',
-    maxHeight: '60%',
-    paddingTop: 20,
-    paddingBottom: 10,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1E293B',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  list: {
-    paddingHorizontal: 12,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    height: 56,
-    marginBottom: 4,
-  },
-  optionSelected: {
-    backgroundColor: '#EFF6FF',
-  },
-  optionText: {
-    fontSize: 18,
-    color: '#334155',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  optionTextSelected: {
-    fontWeight: '800',
-    color: '#2563EB',
-  },
-});
+const makePickerStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    wrapper: {},
+    label: { fontSize: 11, fontWeight: '600', color: c.textSecondary, marginBottom: 6, textAlign: 'center' },
+    button: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: c.bgInput, borderRadius: 12, paddingVertical: 12,
+      paddingHorizontal: 6, borderWidth: 1, borderColor: c.border, gap: 2,
+    },
+    buttonText: { fontSize: 15, fontWeight: '700', color: c.textPrimary, flexShrink: 0 },
+    overlay: { flex: 1, backgroundColor: c.overlay, justifyContent: 'center', alignItems: 'center' },
+    modal: {
+      backgroundColor: c.modalBg, borderRadius: 24, width: '90%', maxHeight: '60%',
+      paddingTop: 20, paddingBottom: 10, borderWidth: 1, borderColor: c.border,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, textAlign: 'center', marginBottom: 12 },
+    list: { paddingHorizontal: 12 },
+    option: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, height: 56, marginBottom: 4,
+    },
+    optionSelected: { backgroundColor: 'rgba(124, 58, 237, 0.15)' },
+    optionText: { fontSize: 18, color: c.textSecondary, textAlign: 'center', fontWeight: '600' },
+    optionTextSelected: { fontWeight: '800', color: '#EC4899' },
+  });
 
 function buildYearItems(): PickerItem[] {
   const now = new Date().getFullYear();
@@ -222,6 +177,8 @@ interface Props {
 }
 
 export default function EditNoteScreen({ navigation, route }: Props) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const noteId = route.params?.noteId;
   const isEditing = !!noteId;
 
@@ -350,235 +307,206 @@ export default function EditNoteScreen({ navigation, route }: Props) {
     }
   };
 
+  const canSubmit = isDateValid() && title.trim().length > 0;
+
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {isEditing ? 'Szerkesztés' : 'Új emlékeztető'}
-          </Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.label}>Mire emlékeztesselek?</Text>
-          <TextInput
-            style={styles.titleInput}
-            placeholder="pl. Fogorvos, Szülinap, Határidő..."
-            placeholderTextColor="#94A3B8"
-            value={title}
-            onChangeText={setTitle}
-            maxLength={100}
-          />
-
-          <Text style={styles.label}>Megjegyzés (opcionális)</Text>
-          <TextInput
-            style={styles.noteInput}
-            placeholder="Részletek, cím, telefonszám..."
-            placeholderTextColor="#94A3B8"
-            value={content}
-            onChangeText={setContent}
-            multiline
-            textAlignVertical="top"
-          />
-
-          <Text style={styles.label}>Mikor?</Text>
-          <View style={styles.dateCard}>
-            <View style={styles.dateRow}>
-              <DropdownPicker
-                label="Év"
-                items={buildYearItems()}
-                selectedValue={year}
-                onSelect={handleYearChange}
-                width={90}
-              />
-              <View style={{ width: 6 }} />
-              <DropdownPicker
-                label="Hónap"
-                items={buildMonthItems()}
-                selectedValue={month}
-                onSelect={handleMonthChange}
-              />
-              <View style={{ width: 6 }} />
-              <DropdownPicker
-                label="Nap"
-                items={buildDayItems(year, month)}
-                selectedValue={day}
-                onSelect={setDay}
-              />
-            </View>
-
-            <View style={styles.timeRow}>
-              <DropdownPicker
-                label="Óra"
-                items={buildHourItems()}
-                selectedValue={hour}
-                onSelect={setHour}
-              />
-              <Text style={styles.timeColon}>:</Text>
-              <DropdownPicker
-                label="Perc"
-                items={buildMinuteItems()}
-                selectedValue={minute}
-                onSelect={setMinute}
-              />
-            </View>
-
-            <View style={styles.previewRow}>
-              <MaterialCommunityIcons
-                name={isDateValid() ? 'calendar-check' : 'calendar-alert'}
-                size={18}
-                color={isDateValid() ? '#16A34A' : '#EF4444'}
-              />
-              <Text style={[styles.previewText, !isDateValid() && styles.previewTextError]}>
-                {isDateValid() ? getDatePreview() : 'Válassz jövőbeli időpontot!'}
+    <View style={s.container}>
+      <LinearGradient
+        colors={[colors.bg, colors.bgEnd] as const}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={s.flex}>
+        <KeyboardAvoidingView
+          style={s.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={s.header}>
+            <LinearGradient
+              colors={colors.gradientSecondary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.headerGradientLine}
+            />
+            <View style={s.headerRow}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={s.backButton}>
+                <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={s.headerTitle}>
+                {isEditing ? 'Szerkesztés' : 'Új emlékeztető'}
               </Text>
+              <View style={{ width: 40 }} />
             </View>
           </View>
 
-          <TouchableOpacity
-            style={[styles.submitButton, (!isDateValid() || !title.trim()) && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            activeOpacity={0.8}
-            disabled={!isDateValid() || !title.trim()}
-          >
-            <MaterialCommunityIcons name="bell-plus" size={22} color="#FFF" />
-            <Text style={styles.submitButtonText}>
-              {isEditing ? 'Emlékeztető frissítése' : 'Emlékeztető beállítása'}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          <ScrollView style={s.content} keyboardShouldPersistTaps="handled">
+            <View style={s.inputGroup}>
+              <View style={s.labelRow}>
+                <MaterialCommunityIcons name="pencil-outline" size={16} color="#EC4899" />
+                <Text style={s.label}>Mire emlékeztesselek?</Text>
+              </View>
+              <TextInput
+                style={s.titleInput}
+                placeholder="pl. Fogorvos, Szülinap, Határidő..."
+                placeholderTextColor={colors.textMuted}
+                value={title}
+                onChangeText={setTitle}
+                maxLength={100}
+              />
+            </View>
+
+            <View style={s.inputGroup}>
+              <View style={s.labelRow}>
+                <MaterialCommunityIcons name="text-box-outline" size={16} color="#7C3AED" />
+                <Text style={s.label}>Megjegyzés (opcionális)</Text>
+              </View>
+              <TextInput
+                style={s.noteInput}
+                placeholder="Részletek, cím, telefonszám..."
+                placeholderTextColor={colors.textMuted}
+                value={content}
+                onChangeText={setContent}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={s.inputGroup}>
+              <View style={s.labelRow}>
+                <MaterialCommunityIcons name="calendar-clock" size={16} color="#06B6D4" />
+                <Text style={s.label}>Mikor?</Text>
+              </View>
+              <View style={s.dateCard}>
+                <View style={s.dateRow}>
+                  <DropdownPicker
+                    label="Év"
+                    items={buildYearItems()}
+                    selectedValue={year}
+                    onSelect={handleYearChange}
+                    width={90}
+                  />
+                  <View style={{ width: 6 }} />
+                  <DropdownPicker
+                    label="Hónap"
+                    items={buildMonthItems()}
+                    selectedValue={month}
+                    onSelect={handleMonthChange}
+                  />
+                  <View style={{ width: 6 }} />
+                  <DropdownPicker
+                    label="Nap"
+                    items={buildDayItems(year, month)}
+                    selectedValue={day}
+                    onSelect={setDay}
+                  />
+                </View>
+
+                <View style={s.timeRow}>
+                  <DropdownPicker
+                    label="Óra"
+                    items={buildHourItems()}
+                    selectedValue={hour}
+                    onSelect={setHour}
+                  />
+                  <Text style={s.timeColon}>:</Text>
+                  <DropdownPicker
+                    label="Perc"
+                    items={buildMinuteItems()}
+                    selectedValue={minute}
+                    onSelect={setMinute}
+                  />
+                </View>
+
+                <View style={[s.previewRow, isDateValid() ? s.previewValid : s.previewInvalid]}>
+                  <MaterialCommunityIcons
+                    name={isDateValid() ? 'calendar-check' : 'calendar-alert'}
+                    size={18}
+                    color={isDateValid() ? colors.success : colors.danger}
+                  />
+                  <Text style={[s.previewText, !isDateValid() && s.previewTextError]}>
+                    {isDateValid() ? getDatePreview() : 'Válassz jövőbeli időpontot!'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={handleSubmit}
+              activeOpacity={0.85}
+              disabled={!canSubmit}
+              style={{ marginBottom: 40 }}
+            >
+              <LinearGradient
+                colors={canSubmit ? colors.gradientPrimary : [colors.textMuted, colors.textMuted] as const}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={s.submitButton}
+              >
+                <MaterialCommunityIcons name="bell-plus" size={22} color={colors.white} />
+                <Text style={s.submitButtonText}>
+                  {isEditing ? 'Emlékeztető frissítése' : 'Emlékeztető beállítása'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-  },
-  flex: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFF',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: 8,
-  },
-  titleInput: {
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  noteInput: {
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 15,
-    color: '#475569',
-    lineHeight: 22,
-    minHeight: 70,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  dateCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  dateRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 40,
-  },
-  timeColon: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#475569',
-    paddingHorizontal: 8,
-    paddingBottom: 12,
-  },
-  previewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
-  },
-  previewText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#16A34A',
-    flex: 1,
-  },
-  previewTextError: {
-    color: '#EF4444',
-  },
-  submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#2563EB',
-    borderRadius: 16,
-    paddingVertical: 18,
-    marginBottom: 40,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#94A3B8',
-  },
-  submitButtonText: {
-    color: '#FFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1 },
+    flex: { flex: 1 },
+    header: {},
+    headerGradientLine: { height: 3, borderRadius: 2 },
+    headerRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 12,
+    },
+    backButton: {
+      width: 40, height: 40, borderRadius: 14, backgroundColor: c.bgCard,
+      borderWidth: 1, borderColor: c.border, justifyContent: 'center', alignItems: 'center',
+    },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
+    content: { flex: 1, padding: 20 },
+    inputGroup: { marginBottom: 20 },
+    labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+    label: { fontSize: 14, fontWeight: '700', color: c.textSecondary },
+    titleInput: {
+      backgroundColor: c.bgInput, borderRadius: 16, padding: 16,
+      fontSize: 16, fontWeight: '600', color: c.textPrimary, borderWidth: 1, borderColor: c.border,
+    },
+    noteInput: {
+      backgroundColor: c.bgInput, borderRadius: 16, padding: 16,
+      fontSize: 15, color: c.textSecondary, lineHeight: 22, minHeight: 70,
+      borderWidth: 1, borderColor: c.border,
+    },
+    dateCard: {
+      backgroundColor: c.bgCard, borderRadius: 18, padding: 16,
+      borderWidth: 1, borderColor: c.border,
+    },
+    dateRow: { flexDirection: 'row', marginBottom: 16 },
+    timeRow: {
+      flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center',
+      marginBottom: 16, paddingHorizontal: 40,
+    },
+    timeColon: {
+      fontSize: 24, fontWeight: '800', color: c.textSecondary,
+      paddingHorizontal: 8, paddingBottom: 12,
+    },
+    previewRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, padding: 12 },
+    previewValid: {
+      backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)',
+    },
+    previewInvalid: {
+      backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)',
+    },
+    previewText: { fontSize: 14, fontWeight: '600', color: c.success, flex: 1 },
+    previewTextError: { color: c.danger },
+    submitButton: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 10, borderRadius: 18, paddingVertical: 18,
+    },
+    submitButtonText: { color: c.white, fontSize: 17, fontWeight: '700' },
+  });

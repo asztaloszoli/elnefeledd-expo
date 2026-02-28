@@ -3,34 +3,56 @@ import { requireNativeModule } from 'expo-modules-core';
 const ExpoRingtone = requireNativeModule('ExpoRingtone');
 
 /**
- * Play the device's default ringtone at alarm volume.
- * Uses Android's RingtoneManager + MediaPlayer natively.
- * Falls back to alarm sound, then notification sound if ringtone is unavailable.
- * @param durationMs - Auto-stop after this many milliseconds (default: 900000 = 15 min)
+ * Check if the app has permission to schedule exact alarms (Android 12+).
  */
-export async function playRingtone(durationMs: number = 900000): Promise<void> {
-  return ExpoRingtone.playRingtone(durationMs);
+export async function canScheduleExactAlarms(): Promise<boolean> {
+  return ExpoRingtone.canScheduleExactAlarms();
 }
 
 /**
- * Play the app's bundled alarm sound (res/raw/alarm_sound.wav) at alarm volume.
- * Used for testing and as notification channel sound.
- * @param durationMs - Auto-stop after this many milliseconds (default: 30000 = 30s for testing)
+ * Open system settings to grant exact alarm permission (Android 12+).
  */
-export async function playAlarmSound(durationMs: number = 30000): Promise<void> {
-  return ExpoRingtone.playAlarmSound(durationMs);
+export async function requestExactAlarmPermission(): Promise<void> {
+  return ExpoRingtone.requestExactAlarmPermission();
 }
 
 /**
- * Stop the currently playing ringtone immediately.
+ * Schedule an alarm using Android AlarmManager.
+ * Fires even when app is killed/background. Starts a ForegroundService to play sound.
  */
-export async function stopRingtone(): Promise<void> {
-  return ExpoRingtone.stopRingtone();
+export async function scheduleAlarm(
+  alarmId: string,
+  triggerAtMillis: number,
+  title: string,
+  body: string
+): Promise<void> {
+  return ExpoRingtone.scheduleAlarm(alarmId, triggerAtMillis, title, body);
 }
 
 /**
- * Check if the ringtone is currently playing.
+ * Cancel a previously scheduled alarm.
  */
-export async function isPlaying(): Promise<boolean> {
-  return ExpoRingtone.isPlaying();
+export async function cancelAlarm(alarmId: string): Promise<void> {
+  return ExpoRingtone.cancelAlarm(alarmId);
+}
+
+/**
+ * Cancel all scheduled alarms.
+ */
+export async function cancelAllAlarms(): Promise<void> {
+  return ExpoRingtone.cancelAllAlarms();
+}
+
+/**
+ * Stop the currently playing alarm (ForegroundService).
+ */
+export async function stopAlarm(): Promise<void> {
+  return ExpoRingtone.stopAlarm();
+}
+
+/**
+ * Schedule a test alarm 3 seconds from now.
+ */
+export async function triggerTestAlarm(): Promise<void> {
+  return ExpoRingtone.triggerTestAlarm();
 }

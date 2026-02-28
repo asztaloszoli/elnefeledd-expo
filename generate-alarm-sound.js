@@ -16,7 +16,7 @@ const path = require('path');
 const SAMPLE_RATE = 8000;
 const BITS_PER_SAMPLE = 16;
 const NUM_CHANNELS = 1;
-const DURATION_SEC = 15 * 60; // 15 perc
+const DURATION_SEC = 30; // 30s loop — service will loop this
 const AMPLITUDE = 0.9; // 0.0 - 1.0
 
 // Beep minta: 200ms beep, 100ms szünet, 200ms beep, 500ms szünet (ismétlődik)
