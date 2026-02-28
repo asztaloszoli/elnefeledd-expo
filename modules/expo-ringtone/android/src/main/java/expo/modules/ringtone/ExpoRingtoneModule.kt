@@ -48,6 +48,36 @@ class ExpoRingtoneModule : Module() {
             handler.postDelayed(stopRunnable, durationMs.toLong())
         }
 
+        AsyncFunction("playAlarmSound") { durationMs: Int ->
+            val context = appContext.reactContext
+                ?: throw Exception("React context is not available")
+
+            stopPlayback()
+
+            val resId = context.resources.getIdentifier("alarm_sound", "raw", context.packageName)
+            if (resId == 0) {
+                throw Exception("alarm_sound resource not found in res/raw")
+            }
+
+            val player = MediaPlayer.create(context, resId)
+                ?: throw Exception("Failed to create MediaPlayer for alarm_sound")
+
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+
+            player.setAudioAttributes(audioAttributes)
+            player.setVolume(1.0f, 1.0f)
+            player.start()
+
+            mediaPlayer = player
+
+            val stopRunnable = Runnable { stopPlayback() }
+            autoStopRunnable = stopRunnable
+            handler.postDelayed(stopRunnable, durationMs.toLong())
+        }
+
         AsyncFunction("stopRingtone") {
             stopPlayback()
         }

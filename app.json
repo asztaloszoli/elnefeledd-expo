@@ -30,6 +30,14 @@
         "projectId": "293224f2-18d2-42a6-b8bc-22b17cc2be37"
       }
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": ["./assets/sounds/alarm_sound.wav"]
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     }

@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Note } from '../types';
 import { getAllNotes, deleteNote } from '../services/storageService';
 import { cancelReminder } from '../services/notificationService';
+import { playAlarmSound, stopRingtone } from '../../modules/expo-ringtone';
 
 const DAYS_HU = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
 const MONTHS_HU = ['jan.', 'feb.', 'már.', 'ápr.', 'máj.', 'jún.', 'júl.', 'aug.', 'szept.', 'okt.', 'nov.', 'dec.'];
@@ -143,6 +144,20 @@ export default function HomeScreen({ navigation }: Props) {
               ? 'Nincs aktív emlékeztető'
               : `${upcoming.length} aktív emlékeztető`}
           </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            style={{ backgroundColor: '#F59E0B', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+            onPress={() => playAlarmSound(10000)}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 12 }}>🔊 Teszt</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+            onPress={() => stopRingtone()}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 12 }}>⏹ Stop</Text>
+          </TouchableOpacity>
         </View>
       </View>
 

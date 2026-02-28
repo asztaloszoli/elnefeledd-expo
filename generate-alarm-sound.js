@@ -121,7 +121,7 @@ const pcmData = samplesToInt16(samples);
 const wavData = createWav(pcmData, SAMPLE_RATE, BITS_PER_SAMPLE, NUM_CHANNELS);
 
 // Kimeneti könyvtár létrehozása
-const outputDir = path.join(__dirname, 'modules', 'expo-ringtone', 'android', 'src', 'main', 'res', 'raw');
+const outputDir = path.join(__dirname, 'assets', 'sounds');
 fs.mkdirSync(outputDir, { recursive: true });
 
 const outputPath = path.join(outputDir, 'alarm_sound.wav');
